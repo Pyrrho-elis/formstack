@@ -1,30 +1,27 @@
+// packages/formstack/__tests__/index.test.ts
+
 import FormStack from '../src/index';
 import { z } from 'zod';
-import { PrismaClient } from '../src/generated/prisma';
 
-// Mock PrismaClient
+// Mock PrismaClient and its form.upsert method
 const mockFormUpsert = jest.fn();
 const mockPrisma = {
   form: {
     upsert: mockFormUpsert,
-    findUnique: jest.fn(),
   },
 };
-jest.mock('../src/generated/prisma', () => ({
-  PrismaClient: jest.fn(() => mockPrisma),
-}));
 
 describe('FormStack', () => {
-  let prisma: PrismaClient;
-
+  // This block is crucial for test isolation
   beforeEach(() => {
-    prisma = new PrismaClient();
     jest.clearAllMocks();
-    // Reset static FormStack state
+
+    // Reset the static properties on FormStack before each test
     // @ts-ignore: Accessing private static for test reset
     FormStack['forms'].clear();
-    // Optionally reset config/prisma if needed:
+    // @ts-ignore: Accessing private static for test reset
     FormStack['config'] = null;
+    // @ts-ignore: Accessing private static for test reset
     FormStack['prisma'] = null;
   });
 
@@ -37,18 +34,18 @@ describe('FormStack', () => {
     expect(form.schema).toBeInstanceOf(z.ZodObject);
   });
 
-  it('rejects duplicate forms', () => {
+  it('rejects duplicate forms', async () => {
     const form = FormStack.define({
       name: 'test',
       schema: z.object({ name: z.string().min(1) }),
     });
-    FormStack.register(form);
-    expect(() => FormStack.register(form)).toThrow(/already registered/);
+    await FormStack.register(form);
+    await expect(FormStack.register(form)).rejects.toThrow(/already registered/);
   });
 
   it('configures Prisma storage and registers form', async () => {
     FormStack.configure({
-      storage: { type: 'prisma', client: prisma },
+      storage: { type: 'prisma', client: mockPrisma as any },
       adapter: { type: 'nextjs', options: { autoRoute: true, dashboardPath: '/formstack-admin' } },
       plugins: [],
       styles: { default: 'tailwind' },
@@ -57,7 +54,9 @@ describe('FormStack', () => {
       name: 'test',
       schema: z.object({ name: z.string().min(1) }),
     });
+
     await FormStack.register(form);
+
     expect(mockFormUpsert).toHaveBeenCalledWith({
       where: { name: 'test' },
       update: { schema: expect.any(String), enabled: true },

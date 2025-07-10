@@ -76,6 +76,16 @@ class FormStack {
     }
     return form;
   }
+
+  // Test-only method to reset static state
+  static resetForTesting() {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('Reset is only allowed in test environment');
+    }
+    FormStack.forms.clear();
+    FormStack.config = null;
+    FormStack.prisma = null;
+  }
 }
 
 export default FormStack;
