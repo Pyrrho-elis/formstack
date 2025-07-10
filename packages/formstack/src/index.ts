@@ -64,7 +64,16 @@ class FormStack {
 
   static async register(form: FormConfig) {
     if (FormStack.forms.has(form.name)) {
-      throw new Error(`Form '${form.name}' already registered`);
+      return FormStack.forms.get(form.name); // Skip if already in memory
+    }
+    if (FormStack.prisma) {
+      const existingForm = await FormStack.prisma.form.findUnique({
+        where: { name: form.name },
+      });
+      if (existingForm) {
+        FormStack.forms.set(form.name, form); // Sync in-memory with DB
+        return form;
+      }
     }
     FormStack.forms.set(form.name, form);
     if (FormStack.prisma) {
@@ -77,7 +86,10 @@ class FormStack {
     return form;
   }
 
-  // Test-only method to reset static state
+  static getForm(name: string): FormConfig | undefined {
+    return FormStack.forms.get(name);
+  }
+
   static resetForTesting() {
     if (process.env.NODE_ENV !== 'test') {
       throw new Error('Reset is only allowed in test environment');
