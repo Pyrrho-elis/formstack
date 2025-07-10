@@ -1,5 +1,4 @@
 import { z } from 'zod';
-//  import { PrismaClient } from '@prisma/client';
 import { PrismaClient } from './generated/prisma';
 
 type FormOptions = {
@@ -63,14 +62,13 @@ class FormStack {
     return config;
   }
 
-  static register(form: FormConfig) {
-    const instance = new FormStack();
+  static async register(form: FormConfig) {
     if (FormStack.forms.has(form.name)) {
       throw new Error(`Form '${form.name}' already registered`);
     }
     FormStack.forms.set(form.name, form);
     if (FormStack.prisma) {
-      FormStack.prisma.form.upsert({
+      await FormStack.prisma.form.upsert({
         where: { name: form.name },
         update: { schema: JSON.stringify(form.schema.shape), enabled: true },
         create: { name: form.name, schema: JSON.stringify(form.schema.shape), enabled: true },
